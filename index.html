@@ -130,7 +130,7 @@ a { color: #2f5d49; }
 <label class="cv-label">Your first name (optional)<input type="text" id="cvName" class="cv-input" placeholder="So the interviewer can address you"></label>
 </div>
 <div class="cv-title" style="margin-top:14px;">Add your CV (optional)</div>
-<p class="cv-note">The interviewer can shape its questions around your real experience. Your CV is read in your own browser, never uploaded or stored, and closing this page discards it. Email addresses, phone numbers and links are removed before anything is sent to the AI service. Prefer not to? Skip this - the interview works fine without it.</p>
+<p class="cv-note">The interviewer can shape its questions around your real experience. Your CV file is read in your own browser - the file itself never leaves your device. Only the previewed text you approve, with email addresses, phone numbers and links removed, is sent to the AI service along with your interview answers. Nothing is stored; closing this page discards it. Prefer not to? Skip this - the interview works fine without it.</p>
 <div class="cv-actions">
 <label class="cv-file">Choose CV file (PDF or text)<input type="file" id="cvFile" accept=".pdf,.txt,.md" hidden></label>
 <button class="cv-link" id="cvPasteToggle" type="button">or paste the text</button>
@@ -381,7 +381,7 @@ a { color: #2f5d49; }
     });
     chat.appendChild(log);
     var comp = el('div', 'chat-compose');
-    comp.appendChild(el('p', 'chat-note', 'The free AI service is busy or out of free capacity right now. Your last answer is kept above - tap Try again in a few minutes.'));
+    comp.appendChild(el('p', 'chat-note', 'The free AI service is at capacity right now. Your last answer is kept above - tap Try again. If it stays busy, use the scripted case and the paste-in prompt below, or come back later.'));
     var again = el('button', 'chat-send', 'Try again');
     again.onclick = function () { render(); run(turns); };
     comp.appendChild(again);
@@ -402,9 +402,19 @@ a { color: #2f5d49; }
     var pill = document.createElement('div');
     pill.id = 'timerPill'; pill.className = 'timer-pill';
     document.body.appendChild(pill);
+    var lastTick = null;
     function tick() {
+      var now = Date.now();
+      var delta = lastTick ? now - lastTick : 0;
+      lastTick = now;
       if (pausedAt) { pill.textContent = 'Paused - editing your answer'; pill.classList.remove('timer-low'); return; }
-      var left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      if (busy || wait > 0) {
+        deadline += delta;
+        pill.textContent = busy ? 'Clock paused - interviewer is thinking' : 'Clock paused - get ready';
+        pill.classList.remove('timer-low');
+        return;
+      }
+      var left = Math.max(0, Math.round((deadline - now) / 1000));
       var mm = Math.floor(left / 60), ss = ('0' + left % 60).slice(-2);
       pill.textContent = 'Mock interview - ' + mm + ':' + ss;
       pill.classList.toggle('timer-low', left <= 300);
@@ -611,7 +621,7 @@ a { color: #2f5d49; }
     cvStatus.style.display = '';
     cvStatus.textContent = midInterview
       ? 'CV updated. It will shape questions from your next mock - the current interview keeps going with what it already has. Nothing is stored; closing this page discards it.'
-      : 'CV added. The interviewer will shape its questions around your experience. It lives only in this page and is discarded when you close or refresh.';
+      : 'CV added. Your original file never left this browser; the approved text goes to the AI service with each interview answer while this page is open, and is discarded when you close or refresh.';
     document.getElementById('cvReplaceRow').style.display = '';
   };
   document.getElementById('cvReplace').onclick = function () {
