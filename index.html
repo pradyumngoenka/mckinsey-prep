@@ -556,7 +556,7 @@ a { color: #2f5d49; }
   function cvRedact(text) {
     var removed = [];
     var out = text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, function (m) { removed.push('email'); return ''; });
-    out = out.replace(/(\+?\d[\d\s().-]{7,}\d)/g, function (m) { removed.push('phone number'); return ''; });
+    out = out.replace(/(\+?\d[\d\s().-]{7,}\d)/g, function (m) { var d = m.replace(/\D/g, ''); if (d.length < 7 || /^(19|20)\d{2}(19|20)?\d{2}$/.test(d)) return m; removed.push('phone number'); return ''; });
     out = out.replace(/(https?:\/\/\S+|www\.\S+)/g, function (m) { removed.push('link'); return ''; });
     out = out.replace(/[ \t]+/g, ' ').replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
     if (out.length > 3000) out = out.slice(0, 3000).trim();
