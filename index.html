@@ -348,6 +348,7 @@ a { color: #2f5d49; }
           if (fc && fc.function && typeof fc.function.arguments === 'string') text = fc.function.arguments;
         }
         if (typeof text !== 'string' || !text.trim()) throw { retryAfter: 0 };
+        if (/reached its budget|enter\.pollinations\.ai|rate limit|try again later/i.test(text)) throw { retryAfter: 60, serviceBusy: true };
         return text.trim();
       });
     });
@@ -380,7 +381,7 @@ a { color: #2f5d49; }
     });
     chat.appendChild(log);
     var comp = el('div', 'chat-compose');
-    comp.appendChild(el('p', 'chat-note', 'The free AI service did not answer after several tries. Your last answer is kept above.'));
+    comp.appendChild(el('p', 'chat-note', 'The free AI service is busy or out of free capacity right now. Your last answer is kept above - tap Try again in a few minutes.'));
     var again = el('button', 'chat-send', 'Try again');
     again.onclick = function () { render(); run(turns); };
     comp.appendChild(again);
