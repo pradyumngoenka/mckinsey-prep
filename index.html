@@ -223,7 +223,7 @@ a { color: #2f5d49; }
     { id: 'snacks', pei: 'a time the candidate drove real, measurable impact', caseBrief: 'a direct-to-consumer snack brand whose online sales growth has stalled', data: 'repeat purchase rate dropped from 30% to 18% over six months while new-customer acquisition held steady; average order value Rs 500; about 10,000 orders a month; website conversion steady at 2.1%', guess: 'estimate the size of the online snacks market in one Indian metro', caseSolution: 'Clarify the goal, then split demand into traffic, conversion, order value and repeat rate. The data shows a retention problem, not acquisition: repeat share fell from 30% to 18%. Quantify the leak (about 1,200 lost repeat orders a month, roughly Rs 6 lakh), diagnose why customers lapse (quality, delivery, pricing), then recommend a win-back campaign plus a cohort deep-dive.', guessSolution: 'Take a metro of about 15 million people. Assume 70% buy snacks, average Rs 300 a month on snacks, and 20% of that spend is online: 15M x 0.7 x 300 x 0.2 is roughly Rs 63 crore a month. Check: about Rs 750 crore a year for one metro feels plausible against national online snack figures.' },
     { id: 'airline', pei: 'a time the candidate led a team through a conflict or setback', caseBrief: 'a regional airline whose two newest routes are losing money', data: 'route A fills 55% of seats, route B fills 72%; breakeven needs 68%; ticket prices match competitors; fuel is 35% of cost and rose 12% this year; route A serves a leisure destination with weekend-heavy demand', guess: 'estimate the number of air passengers passing through Kolkata airport in a day', caseSolution: 'Frame profitability as revenue minus cost per route. Route A at 55% load factor is below the 68% breakeven while route B clears it. Weekend-heavy leisure demand suggests schedule and pricing fixes (fewer weekday flights, weekend bundles) before cutting the route. Note fuel is a shared cost, so the fix is route-specific revenue, not cost cuts.', guessSolution: 'Kolkata airport handled roughly 60,000-65,000 passengers a day pre-pandemic. Build it up: about 180-200 flight movements a day, 150-180 seats each, at about 80% occupancy gives 180 x 165 x 0.8 ≈ 24,000 flyers, times two for arrivals plus departures ≈ 48,000. State assumptions, then compare with any figure you know.' },
     { id: 'fintech', pei: 'a time the candidate solved a problem using data or analysis', caseBrief: 'a consumer lending app whose new-customer defaults have doubled', data: 'default rate rose from 4% to 9% in the newest customer segment; average loan Rs 40,000; the segment grew 3x after a cashback referral campaign; verification checks were shortened during the campaign; collection calls recover 40% of missed payments', guess: 'estimate the number of food-delivery orders placed in a large Indian city each day', caseSolution: 'Separate growth quality from growth quantity: defaults doubled exactly in the segment that grew 3x through cashback referrals with shortened verification. The campaign attracted riskier borrowers. Recommend restoring full verification for the segment, re-pricing or capping loan sizes there, and measuring campaign ROI net of defaults, not just signups.', guessSolution: 'A city of 10 million: assume 25% order food delivery, active users order twice a week, so daily orders = 10M x 0.25 x 2 / 7 ≈ 700,000 a day. Cross-check per platform: if two or three major platforms share this, each handles a few hundred thousand daily, consistent with reported rider counts.' },
-    { id: 'hospital', pei: 'a time the candidate persuaded others or changed someone\'s mind', caseBrief: 'a private hospital chain whose bed occupancy has fallen from 80% to 62%', data: 'occupancy fell from 80% to 62% in a year; outpatient visits grew 15%; insurance empanelment with two large insurers lapsed eight months ago; average stay is 3.2 days; elective surgeries drive 55% of admissions', guess: 'estimate the number of app-based cabs operating in an Indian metro', caseSolution: 'Occupancy fell while outpatient visits grew, so demand exists; the timing matches the lapsed insurance empanelment. Elective surgeries, which drive most admissions, are typically insurance-paid. Recommend renewing the two insurer contracts as the priority fix, plus converting the growing outpatient base through preventive-surgery packages.', guessSolution: 'A metro of 12 million: assume 8% use app cabs on a given day, averaging 1.2 rides; that is about 115,000 rides a day. If each cab completes 12-15 rides daily, the fleet is roughly 8,000-10,000 cabs. Compare with known driver-partner counts from the big platforms.' }
+    { id: 'hospital', pei: 'a time the candidate persuaded others or changed someone\'s mind', caseBrief: 'a private hospital chain whose bed occupancy has fallen from 80% to 62%', data: 'occupancy fell from 80% to 62% in a year; outpatient visits grew 15%; insurance empanelment with two large insurers lapsed eight months ago; average stay is 3.2 days; elective surgeries drive 55% of admissions', guess: 'estimate the number of app-based cabs operating in an Indian metro', caseSolution: 'Occupancy fell while outpatient visits grew, so demand exists; the timing matches the lapsed insurance empanelment. Elective surgeries, which drive most admissions, are typically insurance-paid. Recommend renewing the two insurer contracts as the priority fix, plus converting the growing outpatient base through preventive-surgery packages.', guessSolution: 'A metro of 12 million: assume 8% take an app cab on a given day, averaging 1.2 rides each: 12M x 0.08 x 1.2 is about 1.15 million rides a day. If each cab completes 12-15 rides daily, the fleet is roughly 80,000-95,000 cabs. Compare with known driver-partner counts from the big platforms.' }
   ];
 
   function pickSet() {
@@ -247,7 +247,7 @@ a { color: #2f5d49; }
   var chat = document.getElementById('liveChat');
   var turns = [], busy = false, wait = 0, voiceOn = false, voiceReady = false, listening = false, timer = null;
   var cvText = null, pendingCvText = null, activeRec = null;
-  var currentSet = MOCK_SETS[0], deadline = null, timerTick = null, finished = false, pausedAt = null;
+  var currentSet = MOCK_SETS[0], deadline = null, timerTick = null, finished = false, pausedAt = null, lastResetNote = '';
   var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   function checkVoices() {
@@ -312,6 +312,16 @@ a { color: #2f5d49; }
     };
     comp.appendChild(editBtn);
     chat.appendChild(comp);
+    if (deadline && !finished) chat.insertBefore(makeFinishRow(), chat.firstChild);
+  }
+
+  function makeFinishRow() {
+    var fr = el('div', 'finish-row'); fr.id = 'finishRow';
+    var fb = el('button', 'cv-link', 'Finish early and get feedback'); fb.id = 'finishBtn'; fb.type = 'button';
+    fb.onclick = function () { finishInterview(false); };
+    fr.appendChild(fb);
+    if (lastResetNote) { var rn = el('span', 'cv-note', lastResetNote); rn.style.margin = '0'; fr.appendChild(rn); }
+    return fr;
   }
 
   function setWait(s) {
@@ -449,14 +459,9 @@ a { color: #2f5d49; }
     stopClock();
     var oldRb = document.getElementById('reviewBlock'); if (oldRb) oldRb.remove();
     var oldPill = document.getElementById('timerPill'); if (oldPill) oldPill.remove();
+    lastResetNote = picked.resetNote ? ' All ' + picked.total + ' mock sets used - rotation reset.' : '';
     render();
     startClock();
-    var fr = el('div', 'finish-row'); fr.id = 'finishRow';
-    var fb = el('button', 'cv-link', 'Finish early and get feedback'); fb.id = 'finishBtn'; fb.type = 'button';
-    fb.onclick = function () { finishInterview(false); };
-    fr.appendChild(fb);
-    if (picked.resetNote) { var rn = el('span', 'cv-note', ' All ' + picked.total + ' mock sets used - rotation reset.'); rn.style.margin = '0'; fr.appendChild(rn); }
-    chat.insertBefore(fr, chat.firstChild);
     run([]);
   }
 
@@ -471,6 +476,7 @@ a { color: #2f5d49; }
 
   function renderReview() {
     if (document.getElementById('reviewBlock')) return;
+    var oldFr = document.getElementById('finishRow'); if (oldFr) oldFr.remove();
     var rb = el('div', 'review-block'); rb.id = 'reviewBlock';
     rb.appendChild(el('div', 'cv-title', 'Review: worked approaches for this mock (illustrative)'));
     rb.appendChild(el('p', 'cv-note', 'Your interviewer gives feedback on your actual answers in the chat above. Here is one strong worked approach for this case and guesstimate to compare against - a way to structure thinking, not the only right answer.'));
@@ -491,7 +497,7 @@ a { color: #2f5d49; }
     same.onclick = function () { startMock({ set: currentSet, resetNote: false, total: MOCK_SETS.length, remaining: 0 }); };
     row.appendChild(same);
     rb.appendChild(row);
-    chat.appendChild(rb);
+    chat.parentNode.insertBefore(rb, chat.nextSibling);
   }
 
   function startListening() {
