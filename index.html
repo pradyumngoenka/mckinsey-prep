@@ -336,7 +336,7 @@ a { color: #2f5d49; }
     return fetch('https://text.pollinations.ai/openai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'openai', messages: [{ role: 'system', content: sys }].concat(history) })
+      body: JSON.stringify({ model: 'openai-fast', messages: [{ role: 'system', content: sys }].concat(history) })
     }).then(function (res) {
       if (res.status === 402) { var ra = parseInt(res.headers.get('Retry-After') || '35', 10); throw { retryAfter: isNaN(ra) ? 35 : ra }; }
       if (!res.ok) throw { retryAfter: 0 };
