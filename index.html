@@ -44,6 +44,9 @@ a { color: #2f5d49; }
 .chat-log { max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px 10px; }
 .chat-msg { border-radius: 12px; padding: 10px 14px; max-width: 92%; }
 .chat-msg p { margin: 4px 0 0; font-size: 15px; line-height: 1.55; white-space: pre-wrap; }
+.chat-msg table { border-collapse: collapse; margin: 6px 0; font-size: 13.5px; }
+.chat-msg th, .chat-msg td { border: 1px solid #cfc7ba; padding: 4px 8px; text-align: left; }
+.chat-msg ul, .chat-msg ol { margin: 4px 0; padding-left: 22px; font-size: 15px; line-height: 1.55; }
 .chat-msg.interviewer { background: #f0ebe3; align-self: flex-start; }
 .chat-msg.you { background: #e3ece6; align-self: flex-end; }
 .chat-who { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #6b6259; }
@@ -239,7 +242,7 @@ a { color: #2f5d49; }
   }
 
   function buildPrompt(chosen) {
-    var base = 'You are a McKinsey interviewer running a realistic 30-minute mock interview for a Junior Delivery Consultant (Growth Marketing and Sales) role in India. Run it the way a real interviewer would: warm but professional, one thing at a time, natural follow-ups based on what the candidate actually says. Structure it in three parts. First, one personal experience question about ' + chosen.pei + ', then probe their specific actions and reasoning; when an answer is vague, generic or missing numbers, say so and push for specifics. Second, one case: ' + chosen.caseBrief + '. Let the candidate structure the problem; give data only when they ask, using exactly these facts and keeping every number consistent: ' + chosen.data + '. Include one guesstimate - ask them to ' + chosen.guess + ', expecting stated assumptions, step-by-step arithmetic and a sanity check. Push back on weak assumptions once, then ask for a recommendation. Third, coaching across a few separate messages: honest feedback on structure, communication and maths, then a suggested stronger version of one answer they gave, using only facts they actually shared and never inventing achievements or numbers, then two or three practical tips. A strict rule: every message contains exactly one question or exactly one piece of coaching, never a list of questions. Keep each message under 120 words. If the candidate says time is up or asks to finish, move straight to the coaching in a single message with short labeled parts: Feedback, Stronger answer, Tips. Begin now with a brief greeting and your first question.';
+    var base = 'You are a McKinsey interviewer running a realistic 30-minute mock interview for a Junior Delivery Consultant (Growth Marketing and Sales) role in India. Run it the way a real interviewer would: warm but professional, one thing at a time, natural follow-ups based on what the candidate actually says. Structure it in three parts. First, one personal experience question about ' + chosen.pei + ', then probe their specific actions and reasoning; when an answer is vague, generic or missing numbers, say so and push for specifics. Second, one case: ' + chosen.caseBrief + '. Let the candidate structure the problem; give data only when they ask, using exactly these facts and keeping every number consistent: ' + chosen.data + '. Include one guesstimate - ask them to ' + chosen.guess + ', expecting stated assumptions, step-by-step arithmetic and a sanity check. Push back on weak assumptions once, then ask for a recommendation. Third, coaching across a few separate messages: honest feedback on structure, communication and maths, then a suggested stronger version of one answer they gave, using only facts they actually shared and never inventing achievements or numbers, then two or three practical tips. When you quantify impact or savings anywhere in the coaching, present those numbers as rough estimates based on the stated assumptions, never as certain facts. A strict rule: every message contains exactly one question or exactly one piece of coaching, never a list of questions. Keep each message under 120 words. If the candidate says time is up or asks to finish, move straight to the coaching in a single message with short labeled parts: Feedback, Stronger answer, Tips. Begin now with a brief greeting and your first question.';
     return base;
   }
 
@@ -266,6 +269,52 @@ a { color: #2f5d49; }
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
+
+  function appendMd(msg, text) {
+    function inline(parent, str) {
+      var re = /\*\*([^*]+)\*\*/g, last = 0, mt;
+      while ((mt = re.exec(str))) {
+        if (mt.index > last) parent.appendChild(document.createTextNode(str.slice(last, mt.index)));
+        var b = document.createElement('strong'); b.textContent = mt[1]; parent.appendChild(b);
+        last = mt.index + mt[0].length;
+      }
+      if (last < str.length) parent.appendChild(document.createTextNode(str.slice(last)));
+    }
+    var lines = String(text).split('\n'), i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (!line.trim()) { i++; continue; }
+      if (/^\s*\|/.test(line)) {
+        var rows = [];
+        while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(lines[i]); i++; }
+        var tbl = document.createElement('table'), headDone = false;
+        rows.forEach(function (r) {
+          var cells = r.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|');
+          if (cells.every(function (c) { return /^\s*:?-{2,}:?\s*$/.test(c); })) return;
+          var tr = document.createElement('tr');
+          cells.forEach(function (c) { var td = document.createElement(headDone ? 'td' : 'th'); inline(td, c.trim()); tr.appendChild(td); });
+          headDone = true;
+          tbl.appendChild(tr);
+        });
+        msg.appendChild(tbl);
+        continue;
+      }
+      if (/^\s*[-*]\s+/.test(line)) {
+        var ul = document.createElement('ul');
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { var li = document.createElement('li'); inline(li, lines[i].replace(/^\s*[-*]\s+/, '')); ul.appendChild(li); i++; }
+        msg.appendChild(ul);
+        continue;
+      }
+      if (/^\s*\d+\.\s+/.test(line)) {
+        var ol = document.createElement('ol');
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { var li2 = document.createElement('li'); inline(li2, lines[i].replace(/^\s*\d+\.\s+/, '')); ol.appendChild(li2); i++; }
+        msg.appendChild(ol);
+        continue;
+      }
+      var p = document.createElement('p'); inline(p, line); msg.appendChild(p); i++;
+    }
+  }
+
   function render() {
     chat.innerHTML = '';
     if (voiceReady || Rec) {
@@ -282,7 +331,7 @@ a { color: #2f5d49; }
     turns.forEach(function (t) {
       var m = el('div', 'chat-msg ' + (t.role === 'assistant' ? 'interviewer' : 'you'));
       m.appendChild(el('span', 'chat-who', t.role === 'assistant' ? 'Interviewer' : 'You'));
-      m.appendChild(el('p', null, t.content));
+      appendMd(m, t.content);
       log.appendChild(m);
     });
     if (busy) { var th = el('div', 'chat-msg interviewer'); th.appendChild(el('span', 'chat-who', 'Interviewer')); th.appendChild(el('p', 'chat-thinking', 'thinking...')); log.appendChild(th); }
@@ -400,7 +449,7 @@ a { color: #2f5d49; }
     turns.forEach(function (t) {
       var m = el('div', 'chat-msg ' + (t.role === 'assistant' ? 'interviewer' : 'you'));
       m.appendChild(el('span', 'chat-who', t.role === 'assistant' ? 'Interviewer' : 'You'));
-      m.appendChild(el('p', null, t.content));
+      appendMd(m, t.content);
       log.appendChild(m);
     });
     chat.appendChild(log);
