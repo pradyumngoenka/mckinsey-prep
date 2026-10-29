@@ -330,6 +330,18 @@ a { color: #2f5d49; }
     if (s > 0) timer = setInterval(function () { wait--; var b = chat.querySelector('.chat-send'); if (b && !busy) { b.textContent = wait > 0 ? 'Next answer in ' + wait + 's' : 'Answer'; b.disabled = wait > 0; } if (wait <= 0) clearInterval(timer); }, 1000);
   }
 
+  function parseReply(data) {
+    var msg = data && data.choices && data.choices[0] && data.choices[0].message;
+    var text = msg && msg.content;
+    if ((!text || !text.trim()) && msg && Array.isArray(msg.tool_calls)) {
+      var fc = msg.tool_calls.find(function (c) { return c.function && /final/.test(c.function.name); }) || msg.tool_calls[0];
+      if (fc && fc.function && typeof fc.function.arguments === 'string') text = fc.function.arguments;
+    }
+    if (typeof text !== 'string' || !text.trim()) throw { retryAfter: 0 };
+    if (/reached its budget|enter\.pollinations\.ai|rate limit|try again later/i.test(text)) throw { retryAfter: 60, serviceBusy: true };
+    return text.trim();
+  }
+
   function ask(history) {
     var company = (document.getElementById('cvCompany').value || '').trim() || 'McKinsey';
     var role = (document.getElementById('cvRole').value || '').trim() || 'Junior Delivery Consultant (Growth Marketing and Sales) role in India';
@@ -343,24 +355,26 @@ a { color: #2f5d49; }
       sys += ' If this role is not a consulting or business-strategy role, replace the consumer-brand case with one realistic on-the-job scenario for the role, keeping the same discipline: let the candidate plan first, share information only when asked, include one simple relevant calculation, push back once, then ask for a recommendation.';
     }
     if (cvText) sys += '\n\nThe candidate shared this background from their CV, with contact details removed. Use it as context, do not read it back. Open the personal experience round with one question that goes beyond the CV, such as asking them to tell you something that is not on their CV, then ground your follow-ups in the specific projects and roles they listed, probing what they personally did:\n' + cvText;
-    return fetch('https://text.pollinations.ai/openai', {
+    var msgs = [{ role: 'system', content: sys }].concat(history);
+    var viaGroq = fetch('https://fancy-violet-b3b5.crededge-in.workers.dev/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'openai-fast', messages: [{ role: 'system', content: sys }].concat(history) })
+      body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: msgs, max_tokens: 900 })
+    }).then(function (res) {
+      if (!res.ok) throw { fallback: true };
+      return res.json().then(parseReply);
+    });
+    return viaGroq.catch(function (e) {
+      if (e && e.serviceBusy) throw e;
+      return fetch('https://text.pollinations.ai/openai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'openai-fast', messages: msgs })
     }).then(function (res) {
       if (res.status === 402) { var ra = parseInt(res.headers.get('Retry-After') || '35', 10); throw { retryAfter: isNaN(ra) ? 35 : ra }; }
       if (!res.ok) throw { retryAfter: 0 };
-      return res.json().then(function (data) {
-        var msg = data && data.choices && data.choices[0] && data.choices[0].message;
-        var text = msg && msg.content;
-        if ((!text || !text.trim()) && msg && Array.isArray(msg.tool_calls)) {
-          var fc = msg.tool_calls.find(function (c) { return c.function && /final/.test(c.function.name); }) || msg.tool_calls[0];
-          if (fc && fc.function && typeof fc.function.arguments === 'string') text = fc.function.arguments;
-        }
-        if (typeof text !== 'string' || !text.trim()) throw { retryAfter: 0 };
-        if (/reached its budget|enter\.pollinations\.ai|rate limit|try again later/i.test(text)) throw { retryAfter: 60, serviceBusy: true };
-        return text.trim();
-      });
+      return res.json().then(parseReply);
+    });
     });
   }
 
@@ -659,7 +673,7 @@ a { color: #2f5d49; }
     chat.innerHTML = '';
     var box = el('div', 'consent-box');
     box.appendChild(el('p', 'consent-title', 'Before the first question, one thing to know'));
-    box.appendChild(el('p', null, 'The live interviewer is powered by Pollinations, a free public AI service. Everything you type or say into the interview leaves this page and goes to Pollinations to generate the replies. Pollinations says it processes prompts transiently, keeps only short-lived caches, does not use them to train models, and records a hashed form of your network address. If you use the Speak button, your voice is turned into text by your browser\'s own speech service (Google on Chrome, Apple on Safari), so that audio goes to them. Even so: do not say or type your name, contact details, or anything private. The free tier allows about one exchange every 30 seconds. If you add your CV above, only the text you previewed and approved is sent with your answers, contact details are stripped first, and it is never stored. If you enter your first name, only that name is sent so the interviewer can address you.'));
+    box.appendChild(el('p', null, 'The live interviewer is powered by Groq, an AI hosting service running an open model (OpenAI\'s open gpt-oss-120b), reached through our own secured relay so no key lives in this page. Groq\'s terms say it does not use what you send to train models. If Groq is at capacity, the interview falls back to Pollinations, a free public AI service that says it processes prompts transiently and does not train on them. Either way, everything you type or say leaves this page and goes to that AI service to generate the replies. If you use the Speak button, your voice is turned into text by your browser\'s own speech service (Google on Chrome, Apple on Safari), so that audio goes to them. Even so: do not say or type your name, contact details, or anything private. The free tier allows about one exchange every 30 seconds. If you add your CV above, only the text you previewed and approved is sent with your answers, contact details are stripped first, and it is never stored. If you enter your first name, only that name is sent so the interviewer can address you.'));
     var actions = el('div', 'consent-actions');
     var go = el('button', 'chat-start', 'I understand, start the interview');
     go.onclick = function () {
